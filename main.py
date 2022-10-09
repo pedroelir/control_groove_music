@@ -1,7 +1,9 @@
 from pathlib import Path
 import time
 from typing import Any
+import pywinauto
 from pywinauto.application import Application, WindowSpecification
+from pywinauto import Desktop
 import pywinauto.mouse
 
 
@@ -9,18 +11,23 @@ import pywinauto.mouse
 CURRENT_DIR = Path.cwd()
 dirname = CURRENT_DIR.name
 
+desktop = Desktop("uia")
+windows = [win.window_text().strip() for win in desktop.windows(enabled_only=True) if len(win.window_text()) > 0]
 app: Application = Application("uia").start(
     r"explorer.exe shell:AppsFolder\Microsoft.ZuneMusic_8wekyb3d8bbwe!Microsoft.ZuneMusic"
 )
 time.sleep(2)
 w_handle_list: list = pywinauto.findwindows.find_windows(title="Groove Music", class_name="ApplicationFrameWindow")
-while not w_handle_list:
-    w_handle_list = pywinauto.findwindows.find_windows(title="Groove Music", class_name="ApplicationFrameWindow")
-w_handle: Any = w_handle_list[0]
+w_handle = pywinauto.findwindows.find_window(title="Groove Music", visible_only=False)
+while not w_handle:
+    w_handle = pywinauto.findwindows.find_window(title="Groove Music", visible_only=False)
 
 app.connect(handle=w_handle)
 
 gm: WindowSpecification = app.window(handle=w_handle)
+gm.descendants()
+gm.children()
+gm.find_element()
 
 # gm.print_control_identifiers()
 
