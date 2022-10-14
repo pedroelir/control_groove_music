@@ -1,4 +1,4 @@
-from src.gmui.gmui_handler import GM_UI
+from gmui.gmui_handler import GM_UI
 
 
 def test_is_running(ensure_start):
