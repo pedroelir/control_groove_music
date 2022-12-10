@@ -1,3 +1,5 @@
 *.vscode/
 *.py[c]
 *.wmv
+build/
+*.egg-info/
