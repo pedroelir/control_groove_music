@@ -7,6 +7,25 @@ from pywinauto import Desktop, findwindows, WindowSpecification
 import subprocess
 
 
+mute_button_criteria: Dict[str, str] = {
+    "title_re": "Mute",
+    "auto_id": "Command_ToggleMute",
+    "control_type": "Button",
+}
+repeat_button_criteria: Dict[str, str] = {
+    "title_re": "Repeat",
+    "auto_id": "Command_ToggleRepeat",
+    "control_type": "Button",
+}
+play_button_criteria: Dict[str, str] = {"title": "Play", "auto_id": "Command_Play", "control_type": "Button"}
+pause_button_criteria: Dict[str, str] = {"title": "Pause", "auto_id": "Command_Pause", "control_type": "Button"}
+nowplaying_button_criteria: Dict[str, str] = {
+    # "title_re": "Now playing",
+    "auto_id": "NavigateToNowPlayingPageButton",
+    "control_type": "Button",
+}
+
+
 class GM_UI:
     def __init__(self) -> None:
         self.__title: str = "Groove Music"
@@ -28,7 +47,7 @@ class GM_UI:
         ]
         return self.__title in windows
 
-    def conect(self) -> None:
+    def connect(self) -> None:
         # w_handle_list: list = findwindows.find_windows(title="Groove Music", class_name="ApplicationFrameWindow")
         try:
             w_handle = findwindows.find_window(title=self.__title, visible_only=False)
@@ -92,21 +111,12 @@ class GM_UI:
 
         # get song list
         songlist_crtieria: Dict[str, str] = {"title": "MY MUSIC", "auto_id": "SongsList", "control_type": "List"}
-        # a = self.window.child_window(**songlist_crtieria).iter_children(control_type="Text")
         songlist_parent: BaseWrapper = self.window.child_window(**songlist_crtieria).wrapper_object()
-        a = songlist_parent.descendants()
-        # for element in a:
-        #     if element.element_info.automation_id == "Title" and element.element_info.name not in [
-        #         "Not finding everything?",
-        #         "Songs",
-        #         "Artists",
-        #         "Albums",
-        #     ]:
-        #         print(element.element_info.name)
 
+        songlist_descendants: List[BaseWrapper] = songlist_parent.descendants()
         songlist: List[str] = [
             element.element_info.name
-            for element in a
+            for element in songlist_descendants
             if element.element_info.automation_id == "Title"
             and element.element_info.name
             not in [
@@ -116,21 +126,42 @@ class GM_UI:
                 "Albums",
             ]
         ]
+        print(f"{songlist=}")
+
+        children: List[BaseWrapper] = songlist_parent.iter_children()
+        songchildren: List[str] = []
+        for child in children:
+            if child.element_info.control_type == "ListItem":
+                songchildren.append(child.children()[0].element_info.name)
+                # for grandchild in child.children():
+                #     if grandchild.element_info.automation_id == "Title":
+                #         songchildren.append(grandchild.element_info.name)
+
+        print(f"{children=}")
+        print(f"{songchildren=}")
 
         def get_best_match(candidates: List[str], reference: str, threshold: float = 0.5) -> str:
             from difflib import SequenceMatcher
 
+            if len(candidates) == 0:
+                return ""
+            if len(candidates) == 1:
+                return candidates[0]
+
             best_ratio: float = threshold
             best_match: str = ""
+            print(f"finding best match for {reference}")
             for candidate in candidates:
                 cadidate_ratio: float = SequenceMatcher(a=candidate, b=reference).ratio()
+                print(f"{candidate} ratio: {cadidate_ratio}")
                 if cadidate_ratio > best_ratio:
                     best_match, best_ratio = candidate, cadidate_ratio
 
             return best_match
 
         reference: str = media_name if media_name is not None else media_path.stem
-        song_title: str = get_best_match(songlist, reference)
+        song_title: str = get_best_match(songchildren, reference)
+
         song_text_criteria: Dict[str, str] = {"title": song_title, "control_type": "Text"}
         playall_button_criterria: Dict[str, str] = {
             "title": "Play all",
@@ -142,8 +173,40 @@ class GM_UI:
                 # if song titile not found or is "select, the song might have focus already"
                 print(f"Best match found {song_title}")
                 self.window.child_window(**song_text_criteria).click_input()
+            else:
+                print(f"No Best match found for {reference}, the song might be already selected")
             print("Trying to press play")
             self.window.child_window(**playall_button_criterria).click_input()
         except findwindows.ElementNotFoundError:
             print("cannot play Title")
             return False
+
+        # time.sleep(1)
+        # self.window.child_window(**nowplaying_button_criteria).click_input()
+        time.sleep(1)
+        self.window.child_window(**pause_button_criteria).click_input()
+        time.sleep(1)
+        self.window.child_window(**play_button_criteria).click_input()
+        time.sleep(1)
+        self.window.child_window(**repeat_button_criteria).click_input()
+        time.sleep(1)
+        self.window.child_window(**mute_button_criteria).click_input()
+        time.sleep(1)
+        self.window.child_window(**repeat_button_criteria).click_input()
+        time.sleep(1)
+        self.window.child_window(**mute_button_criteria).click_input()
+        return self.is_playing
+
+    def is_playing(self) -> bool:
+        try:
+            self.window.child_window(**play_button_criteria)
+            return False
+        except findwindows.ElementNotFoundError:
+            return True
+
+    def is_paused(self) -> bool:
+        try:
+            self.window.child_window(**pause_button_criteria)
+            return False
+        except findwindows.ElementNotFoundError:
+            return True
